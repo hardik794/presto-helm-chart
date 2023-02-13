@@ -84,7 +84,7 @@ spec:
             {{- end }}
             {{- if $.Values.node_config }}
             - name: {{ $.Chart.Name }}-node-config
-              mountPath: /opt/presto/etc/catalog/node.properties
+              mountPath: /opt/presto/etc/node.properties
               subPath: node.properties.server
             {{- end }}
             {{- if $.Values.server.catalog_properties }}
