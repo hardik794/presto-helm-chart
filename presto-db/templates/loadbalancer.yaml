@@ -1,0 +1,41 @@
+{{- $isLoadBalancerEnabled := index .Values.service.loadbalancer.enabled }}
+{{- $loadBalancer := (lookup "v1" "Service" .Release.Namespace (printf "%s-lb" (include "presto.fullname" $))) }}
+{{- $loadBalancerExists := $loadBalancer | all }}
+
+{{- if and $loadBalancerExists $isLoadBalancerEnabled -}}
+  {{- $loadBalancerSelector :=  $loadBalancer.spec.selector -}}
+    {{- if eq (get $loadBalancerSelector "app.kubernetes.io/name") (include "presto.name" $) -}}
+      {{- if not .Release.IsUpgrade -}}
+        {{ fail (printf "%s" "A PrestoDB installation already exists in this namespace with the same name") }}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if and (not $loadBalancerExists) ($isLoadBalancerEnabled) -}}
+{{- $spec := .Values.service.loadbalancer.extraSpec }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "presto.fullname" . }}-lb
+  labels:
+    {{- include "presto.labels" . | nindent 4 }}
+{{- with .Values.service.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+  {{- omit $spec "type" "ports" "selector" | include "service.loadbalancer.extraSpec"  | nindent 2 }}
+  type: LoadBalancer
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- if .Values.server.resourceManager.enabled }}
+    app.kubernetes.io/component: resourceManager
+    {{- else }}
+    app.kubernetes.io/component: coordinator
+    {{- end }}
+    {{- include "presto.selectorLabels" . | nindent 4 }}
+{{- end }}

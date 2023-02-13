@@ -1,0 +1,184 @@
+# Default values for presto-db.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+
+server: 
+  # Presto accesses data via connectors, which are mounted in catalogs.
+  # The connector provides all of the schemas and tables inside of the catalog
+  catalog_properties: {}
+    # jmx.properties:
+    #   - connector.name=jmx
+  env: []
+  additionalVolumes: []
+  additionalVolumeMounts: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  podLabels: {}
+  resources: {}
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+  autoscaling:
+    extraSpec: {}
+      # behavior:
+      #   scaleDown: 
+      #     policies: 
+      #     - type: Pods 
+      #       value: 1
+      #       periodSeconds: 60 
+      #     - type: Percent
+      #       value: 10 
+      #       periodSeconds: 60
+      #     selectPolicy: Min 
+      #     stabilizationWindowSeconds: 60
+      #   scaleUp: 
+      #     policies:
+      #     - type: Pods
+      #       value: 1 
+      #       periodSeconds: 180
+      #     - type: Percent
+      #       value: 12 
+      #       periodSeconds: 180
+      #     selectPolicy: Max
+      #     stabilizationWindowSeconds: 0
+
+  coordinator:
+    enabled: true
+    config_properties:
+      - query.max-memory=50GB
+      - query.max-memory-per-node=1GB
+    replicaCount: 1
+    env: []
+    additionalVolumes: []
+    additionalVolumeMounts: []
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    podAnnotations: {}
+    podLabels: {}
+    resources: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+      extraSpec: {}
+
+  worker:
+    enabled: false
+    config_properties: []
+    replicaCount: 1
+    env: []
+    additionalVolumes: []
+    additionalVolumeMounts: []
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    podAnnotations: {}
+    podLabels: {}
+    resources: {}
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+      extraSpec: {}
+
+  resourceManager:
+    enabled: false
+    config_properties: []
+    replicaCount: 1
+    env: []
+    additionalVolumes: []
+    additionalVolumeMounts: []
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    podAnnotations: {}
+    podLabels: {}
+    resources: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+  loadbalancer:
+    enabled: true
+    annotations: {}
+    extraSpec:
+      loadBalancerSourceRanges:
+        - "103.97.243.105/32"
+        - "103.108.207.58/32"
+
+# Jvm configuration for Presto
+jvm:
+  # defaultJvmArguments is a list of strings. Each jvm argument should be a separate element:
+  defaultJvmArguments:
+    - "-server"
+    - "-Xmx16G"
+    - "-XX:+UseG1GC"
+    - "-XX:G1HeapRegionSize=32M"
+    - "-XX:+UseGCOverheadLimit"
+    - "-XX:+ExplicitGCInvokesConcurrent"
+    - "-XX:+HeapDumpOnOutOfMemoryError"
+    - "-XX:+ExitOnOutOfMemoryError"
+
+  # additionalJvmArguments is a list of strings. Each jvm argument should be a separate element:
+  serverAdditionalJvmArguments: []
+  # - "-XX:ReservedCodeCacheSize=40m"
+  workerAdditionalJvmArguments: []
+  coordinatorAdditionalJvmArguments: []
+  resourceManagerAdditionalJvmArguments: []
+  
+logs:
+  serverLogLevel: []
+  workerLogLevel:
+    - node.environment=production
+  coordinatorLogLevel: []
+  resourceManagerLogLevel: []
+
+node_config:
+  - node.environment=production
+  - node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
+  - node.data-dir=/var/presto/data

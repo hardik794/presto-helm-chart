@@ -1,0 +1,111 @@
+{{- range $server := (list "coordinator" "worker" "resourceManager" ) }}
+{{- $serverValues := index $.Values.server $server -}}
+{{- if $serverValues.enabled }}
+{{- $logLevel := $.Values.logs.coordinatorLogLevel}}
+{{- if eq ($server) "worker" -}}{{- $logLevel = $.Values.logs.workerLogLevel}}{{- end }}
+{{- if eq ($server) "resourceManager" -}}{{- $logLevel = $.Values.logs.resourceManagerLogLevel}}{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "presto.fullname" $ }}-{{ $server }}
+  labels:
+    app.kubernetes.io/component: {{ $server }}
+    {{- include "presto.labels" $ | nindent 4 }}
+    {{- with (default $.Values.server.podLabels $serverValues.podLabels) }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  replicas: {{ $serverValues.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ $server }}
+      {{- include "presto.selectorLabels" $ | nindent 6 }}
+  template:
+    metadata:
+      {{- with (default $.Values.server.podAnnotations $serverValues.podAnnotations) }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app.kubernetes.io/component: {{ $server }}
+        {{- include "presto.selectorLabels" $ | nindent 8 }}
+    spec:
+      {{ include "presto.serviceAccount" $ }}
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      volumes:
+        - name: {{ $.Chart.Name }}-config
+          configMap:
+            name: {{ include "presto.fullname" $ }}-{{ $server }}-config
+        {{- if $.Values.server.catalog_properties }}
+        - name: {{ $.Chart.Name }}-catalog-config
+          configMap:
+            name: {{ include "presto.fullname" $ }}-catalog-config
+        {{- end }}
+        {{- if $.Values.node_config }}
+        - name: {{ $.Chart.Name }}-node-config
+          configMap:
+            name: {{ include "presto.fullname" $ }}-node-config
+        {{- end }}
+        {{- if $.Values.server.additionalVolumes }}
+        {{- toYaml $.Values.server.additionalVolumes | nindent 8}}  
+        {{- end }}
+      containers:
+        - name: {{ $.Chart.Name }}
+          securityContext:
+            {{- toYaml $.Values.securityContext | nindent 12 }}
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          {{- with (default $.Values.server.env $serverValues.env) }}
+          env:
+            {{- toYaml . | nindent 4 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            {{- toYaml (default $.Values.server.resources $serverValues.resources) | nindent 12 }}
+          volumeMounts:
+            - name: {{ $.Chart.Name }}-config
+              mountPath: /opt/presto/etc/config.properties
+              subPath: config.properties.{{ $server }}
+            - name: {{ $.Chart.Name }}-config
+              mountPath: /opt/presto/etc/jvm.config
+              subPath: jvm.config.{{ $server }}
+            {{- if or ($.Values.logs.serverLogLevel) ($logLevel) }}
+            - name: {{ $.Chart.Name }}-config
+              mountPath: /opt/presto/etc/log.properties
+              subPath: log.properties.{{ $server }}
+            {{- end }}
+            {{- if $.Values.node_config }}
+            - name: {{ $.Chart.Name }}-node-config
+              mountPath: /opt/presto/etc/catalog/node.properties
+              subPath: node.properties.server
+            {{- end }}
+            {{- if $.Values.server.catalog_properties }}
+            - name: {{ $.Chart.Name }}-catalog-config
+              mountPath: /opt/presto/etc/catalog/
+            {{- end }}
+            {{- if $.Values.server.additionalVolumeMounts }}
+            {{- toYaml $.Values.server.additionalVolumeMounts | nindent 12}}  
+            {{- end }}
+      {{- with (default $.Values.server.nodeSelector $serverValues.nodeSelector) }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (default $.Values.server.affinity $serverValues.affinity) }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (default $.Values.server.tolerations $serverValues.tolerations) }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- end }}
+{{- end }}

@@ -1,0 +1,84 @@
+{{- range $server := (list "coordinator" "worker" "resourceManager" ) }}
+{{- $serverValues := index $.Values.server $server -}}
+{{- $isCoordinator := eq ($server) "coordinator" }}
+{{- $isNotSingleMachine := or ($.Values.server.worker.enabled) ($.Values.server.resourceManager.enabled) }}
+{{- if $serverValues.enabled }}
+{{- $additionalJvmArguments := $.Values.jvm.coordinatorAdditionalJvmArguments}}
+{{- if eq ($server) "worker" -}}{{- $additionalJvmArguments = $.Values.jvm.workerAdditionalJvmArguments}}{{- end }}
+{{- if eq ($server) "resourceManager" -}}{{- $additionalJvmArguments = $.Values.jvm.resourceManagerAdditionalJvmArguments}}{{- end }}
+{{- $logLevel := $.Values.logs.coordinatorLogLevel}}
+{{- if eq ($server) "worker" -}}{{- $logLevel = $.Values.logs.workerLogLevel}}{{- end }}
+{{- if eq ($server) "resourceManager" -}}{{- $logLevel = $.Values.logs.resourceManagerLogLevel}}{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "presto.fullname" $ }}-{{ $server }}-config
+  labels:
+    app.kubernetes.io/component: {{ $server }}
+    {{- include "presto.labels" $ | nindent 4 }}
+    {{- with (default $.Values.server.podLabels $serverValues.podLabels) }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+    config.properties.{{ $server }}: |-
+        {{- if eq $server "resourceManager" }}
+        resource-manager=true
+        resource-manager-enabled=true
+        discovery-server.enabled=true
+        {{- end }}
+        {{- if and (eq $server "coordinator") (not $.Values.server.resourceManager.enabled)}}
+        discovery-server.enabled=true
+        {{- end }}
+        {{- if $isNotSingleMachine }}
+        {{- if ne $server "worker" }}
+        node-scheduler.include-coordinator=false
+        {{- end }}
+        {{- else }}
+        node-scheduler.include-coordinator=true
+        {{- end }}
+        coordinator={{ $isCoordinator }}
+        discovery.uri=http://{{ include "presto.fullname" $ }}:{{ $.Values.service.port }}
+        http-server.http.port={{ $.Values.service.port }}
+        {{- range $ignored, $argument := $serverValues.config_properties }}
+        {{- trim $argument | trim | nindent 8 }}
+        {{- end }}
+    jvm.config.{{ $server }}: |-
+        {{- range $ignored, $argument := $.Values.jvm.defaultJvmArguments }}
+        {{- trim $argument | trim | nindent 8 }}
+        {{- end }}
+        {{- range $ignored, $argument := $.Values.jvm.serverAdditionalJvmArguments }}
+        {{- trim $argument | trim | nindent 8 }}
+        {{- end }}
+        {{- range $ignored, $argument := $additionalJvmArguments}}
+        {{- trim $argument | trim | nindent 8 }}
+        {{- end }}
+    {{- if or ($.Values.logs.serverLogLevel) ($logLevel) }}
+    log.properties.{{ $server }}: |-
+        {{- range $ignored, $argument := $.Values.logs.serverLogLevel }}
+        {{- trim $argument | trim | nindent 8 }}
+        {{- end }}
+        {{- range $ignored, $argument := $logLevel }}
+        {{- trim $argument | trim | nindent 8 }}
+        {{- end }}
+    {{- end }}
+---
+{{- end }}
+{{- end }}
+
+{{- if .Values.node_config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: {{ include "presto.fullname" $ }}-node-config
+    labels:
+        {{- include "presto.labels" $ | nindent 4 }}
+        {{- with .Values.server.podLabels }}
+        {{- toYaml . | nindent 4 }}
+        {{- end }}
+data:
+    node.properties.server: |-
+        {{- range $ignored, $argument := $.Values.node_config }}
+        {{- trim $argument | trim | nindent 8 }}
+        {{- end }}
+---
+{{- end }}

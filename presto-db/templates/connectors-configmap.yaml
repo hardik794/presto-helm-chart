@@ -1,0 +1,18 @@
+{{- if .Values.server.catalog_properties }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "presto.fullname" . }}-catalog-config
+  labels:
+    {{- include "presto.labels" $ | nindent 4 }}
+    {{- with .Values.server.podLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+  {{- range $name,$value := .Values.server.catalog_properties }}
+  {{ $name }}: |-
+    {{- range $ignored, $argument := $value }}
+    {{- trim $argument | trim | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end }}

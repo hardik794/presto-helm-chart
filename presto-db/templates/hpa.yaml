@@ -1,0 +1,41 @@
+{{- range $server := (list "coordinator" "worker" ) }}
+{{- $serverValues := index $.Values.server $server -}}
+{{- if $serverValues.enabled }}
+{{- if $serverValues.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "presto.fullname" $ }}-{{ $server }}
+  labels:
+    app.kubernetes.io/component: {{ $server }}
+    {{- include "presto.labels" $ | nindent 4 }}
+    {{- with (default $.Values.server.podLabels $serverValues.podLabels) }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "presto.fullname" $ }}-{{ $server }}
+  minReplicas: {{ $serverValues.autoscaling.minReplicas }}
+  maxReplicas: {{ $serverValues.autoscaling.maxReplicas }}
+  {{- with (default $.Values.server.autoscaling.extraSpec $serverValues.autoscaling.extraSpec) }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+  metrics:
+    {{- if $serverValues.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ $serverValues.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if $serverValues.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        targetAverageUtilization: {{ $serverValues.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+---
+{{- end }}
+{{- end }}
+{{- end }}
