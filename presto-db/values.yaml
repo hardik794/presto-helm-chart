@@ -11,6 +11,7 @@ image:
   tag: ""
 
 imagePullSecrets: []
+  # - name: secret
 
 server: 
   # Presto accesses data via connectors, which are mounted in catalogs.
