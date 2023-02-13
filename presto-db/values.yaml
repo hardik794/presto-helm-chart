@@ -86,8 +86,10 @@ server:
 
   worker:
     enabled: false
-    config_properties: []
-    replicaCount: 1
+    config_properties:
+      - query.max-memory=50GB
+      - query.max-memory-per-node=1GB
+    replicaCount: 2
     env: []
     additionalVolumes: []
     additionalVolumeMounts: []
@@ -98,7 +100,7 @@ server:
     podLabels: {}
     resources: {}
     autoscaling:
-      enabled: true
+      enabled: false
       minReplicas: 1
       maxReplicas: 100
       targetCPUUtilizationPercentage: 80
@@ -107,7 +109,9 @@ server:
 
   resourceManager:
     enabled: false
-    config_properties: []
+    config_properties:
+      - query.max-memory=50GB
+      - query.max-memory-per-node=1GB
     replicaCount: 1
     env: []
     additionalVolumes: []
@@ -144,12 +148,12 @@ service:
   port: 8080
   annotations: {}
   loadbalancer:
-    enabled: true
+    enabled: false
     annotations: {}
-    extraSpec:
-      loadBalancerSourceRanges:
-        - "103.97.243.105/32"
-        - "103.108.207.58/32"
+    extraSpec: {}
+      # loadBalancerSourceRanges:
+      #   - "10.9.23.55/32"
+      #   - "10.18.27.8/32"
 
 # Jvm configuration for Presto
 jvm:
@@ -173,12 +177,11 @@ jvm:
   
 logs:
   serverLogLevel: []
-  workerLogLevel:
-    - node.environment=production
+  workerLogLevel: []
   coordinatorLogLevel: []
   resourceManagerLogLevel: []
 
-node_config:
-  - node.environment=production
-  - node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
-  - node.data-dir=/var/presto/data
+node_config: []
+  # - node.environment=production
+  # - node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
+  # - node.data-dir=/var/presto/data
